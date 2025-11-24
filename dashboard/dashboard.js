@@ -24,8 +24,8 @@ function initSidebarToggle() {
 
     if (!sidebar || !sidebarToggle) return;
 
-    // 저장된 사이드바 상태 복원
-    const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+    // 저장된 사이드바 상태 복원 (기본값: 닫힘)
+    const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') !== 'false';
     if (sidebarCollapsed) {
         sidebar.classList.add('collapsed');
     }

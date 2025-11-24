@@ -31,8 +31,30 @@ const SettingsManager = {
 
     // 초기화
     init() {
+        this.initSidebarToggle();
         this.loadSettings();
         this.setupEventListeners();
+    },
+
+    // 사이드바 토글 초기화
+    initSidebarToggle() {
+        const sidebar = document.querySelector('.sidebar');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+
+        if (!sidebar || !sidebarToggle) return;
+
+        // 저장된 사이드바 상태 복원 (기본값: 닫힘)
+        const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') !== 'false';
+        if (sidebarCollapsed) {
+            sidebar.classList.add('collapsed');
+        }
+
+        // 토글 버튼 클릭 이벤트
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
+        });
     },
 
     // 설정 불러오기

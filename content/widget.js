@@ -132,13 +132,45 @@ console.log('[셀러보드] widget.js 로드됨');
         let startX = 0, startY = 0, initX = 0, initY = 0;
 
         // 위치 복원
-        chrome.storage.local.get(['widgetPos'], (r) => {
-            if (r.widgetPos) {
-                widget.style.left = r.widgetPos.left + 'px';
-                widget.style.top = r.widgetPos.top + 'px';
-                widget.style.right = 'auto';
+        if (chrome && chrome.storage && chrome.storage.local) {
+            try {
+                chrome.storage.local.get(['widgetPos'], (r) => {
+                    if (chrome.runtime.lastError) {
+                        console.warn('[셀러보드] 위치 불러오기 실패:', chrome.runtime.lastError);
+                        return;
+                    }
+                    if (r.widgetPos) {
+                        widget.style.left = r.widgetPos.left + 'px';
+                        widget.style.top = r.widgetPos.top + 'px';
+                        widget.style.right = 'auto';
+                    }
+                });
+            } catch (err) {
+                console.warn('[셀러보드] 위치 불러오기 오류:', err);
             }
-        });
+        }
+
+        // 통계 업데이트 함수
+        function updateStats() {
+            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+                try {
+                    chrome.runtime.sendMessage({ action: 'getStats' }, (r) => {
+                        if (chrome.runtime.lastError) {
+                            console.warn('[셀러보드] 통계 불러오기 실패:', chrome.runtime.lastError);
+                            return;
+                        }
+                        if (r) {
+                            const todayEl = document.getElementById('sb-today');
+                            const totalEl = document.getElementById('sb-total');
+                            if (todayEl) todayEl.textContent = r.today || 0;
+                            if (totalEl) totalEl.textContent = r.total || 0;
+                        }
+                    });
+                } catch (err) {
+                    console.warn('[셀러보드] 통계 불러오기 오류:', err);
+                }
+            }
+        }
 
         // 팝업 토글
         window.sellerboardWidget = {
@@ -148,12 +180,7 @@ console.log('[셀러보드] widget.js 로드됨');
                 popup.classList.add('sb-enter');
                 popup.classList.remove('sb-exit');
                 btn.style.display = 'none';
-                chrome.runtime.sendMessage({ action: 'getStats' }, (r) => {
-                    if (r) {
-                        document.getElementById('sb-today').textContent = r.today || 0;
-                        document.getElementById('sb-total').textContent = r.total || 0;
-                    }
-                });
+                updateStats();
             },
             close: () => {
                 isOpen = false;
@@ -224,7 +251,20 @@ console.log('[셀러보드] widget.js 로드됨');
                 dragType = null;
                 btn.style.cursor = 'grab';
                 const r = widget.getBoundingClientRect();
-                chrome.storage.local.set({ widgetPos: { left: r.left, top: r.top } });
+
+                // chrome.storage API 안전하게 호출
+                if (chrome && chrome.storage && chrome.storage.local) {
+                    try {
+                        chrome.storage.local.set({ widgetPos: { left: r.left, top: r.top } }, () => {
+                            if (chrome.runtime.lastError) {
+                                console.warn('[셀러보드] 위치 저장 실패:', chrome.runtime.lastError);
+                            }
+                        });
+                    } catch (err) {
+                        console.warn('[셀러보드] 위치 저장 오류:', err);
+                    }
+                }
+
                 if (!moved) window.sellerboardWidget.open();
             } else if (dragging) {
                 dragging = false;
@@ -246,17 +286,27 @@ console.log('[셀러보드] widget.js 로드됨');
             try {
                 if (typeof productParser !== 'undefined') {
                     const data = await productParser.extractProductData();
-                    chrome.runtime.sendMessage({ action: 'saveProduct', data }, (r) => {
-                        if (r?.success) {
-                            collectBtn.innerHTML = '<span>✓</span> 완료!';
-                            collectBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-                            setTimeout(() => {
-                                collectBtn.innerHTML = '<span>📦</span> 상품 수집';
-                                collectBtn.style.background = 'linear-gradient(135deg, #6366f1, #4f46e5)';
-                                collectBtn.disabled = false;
-                            }, 2000);
-                        } else throw new Error(r?.error || '실패');
-                    });
+                    if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+                        chrome.runtime.sendMessage({ action: 'saveProduct', data }, (r) => {
+                            if (chrome.runtime.lastError) {
+                                console.error('[셀러보드] 상품 저장 실패:', chrome.runtime.lastError);
+                                throw new Error(chrome.runtime.lastError.message);
+                            }
+                            if (r?.success) {
+                                collectBtn.innerHTML = '<span>✓</span> 완료!';
+                                collectBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                                setTimeout(() => {
+                                    collectBtn.innerHTML = '<span>📦</span> 상품 수집';
+                                    collectBtn.style.background = 'linear-gradient(135deg, #6366f1, #4f46e5)';
+                                    collectBtn.disabled = false;
+                                }, 2000);
+                                // 통계 즉시 업데이트
+                                updateStats();
+                            } else throw new Error(r?.error || '실패');
+                        });
+                    } else {
+                        throw new Error('Chrome API 사용 불가');
+                    }
                 } else throw new Error('Parser 없음');
             } catch (e) {
                 collectBtn.innerHTML = '<span>✗</span> 실패';
@@ -274,9 +324,31 @@ console.log('[셀러보드] widget.js 로드됨');
             window.sellerboardWidget.close();
         });
 
-        dashboardBtn.addEventListener('click', () => chrome.runtime.sendMessage({ action: 'openDashboard' }));
+        dashboardBtn.addEventListener('click', () => {
+            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+                try {
+                    chrome.runtime.sendMessage({ action: 'openDashboard' }, () => {
+                        if (chrome.runtime.lastError) {
+                            console.warn('[셀러보드] 대시보드 열기 실패:', chrome.runtime.lastError);
+                        }
+                    });
+                } catch (err) {
+                    console.warn('[셀러보드] 대시보드 열기 오류:', err);
+                }
+            }
+        });
         dashboardBtn.addEventListener('mouseenter', () => dashboardBtn.style.background = 'rgba(99,102,241,0.2)');
         dashboardBtn.addEventListener('mouseleave', () => dashboardBtn.style.background = 'rgba(99,102,241,0.1)');
+
+        // storage 변경 감지하여 실시간 통계 업데이트
+        if (chrome && chrome.storage && chrome.storage.onChanged) {
+            chrome.storage.onChanged.addListener((changes, areaName) => {
+                if (areaName === 'local' && (changes.products || changes.stats)) {
+                    console.log('[셀러보드] 저장소 변경 감지, 통계 업데이트');
+                    updateStats();
+                }
+            });
+        }
 
         console.log('[셀러보드] ✅ 초기화 완료!');
     }
