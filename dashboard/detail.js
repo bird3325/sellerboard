@@ -22,6 +22,25 @@ let currentProduct = null;
  * 이벤트 리스너 설정
  */
 function setupEventListeners() {
+    // 사이드바 토글
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+
+    if (sidebar && sidebarToggle) {
+        // 저장된 사이드바 상태 복원
+        const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (sidebarCollapsed) {
+            sidebar.classList.add('collapsed');
+        }
+
+        // 토글 버튼 클릭 이벤트
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
+        });
+    }
+
     // 뒤로가기
     document.getElementById('back-btn').addEventListener('click', () => {
         window.location.href = 'dashboard.html';

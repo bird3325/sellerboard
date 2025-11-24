@@ -9,10 +9,34 @@ let currentPage = 1;
 const itemsPerPage = 20;
 
 document.addEventListener('DOMContentLoaded', () => {
+    initSidebarToggle();
     loadProducts();
     setupNavigation();
     setupEventListeners();
 });
+
+/**
+ * 사이드바 토글 초기화
+ */
+function initSidebarToggle() {
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+
+    if (!sidebar || !sidebarToggle) return;
+
+    // 저장된 사이드바 상태 복원
+    const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+    if (sidebarCollapsed) {
+        sidebar.classList.add('collapsed');
+    }
+
+    // 토글 버튼 클릭 이벤트
+    sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        const isCollapsed = sidebar.classList.contains('collapsed');
+        localStorage.setItem('sidebarCollapsed', isCollapsed);
+    });
+}
 
 /**
  * 네비게이션 설정
