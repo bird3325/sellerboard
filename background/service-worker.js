@@ -1,17 +1,3 @@
-/**
- * Service Worker - 백그라운드 작업 처리
- * Chrome Storage API만 사용 (간단한 구조)
- */
-
-// 확장프로그램 설치 시
-chrome.runtime.onInstalled.addListener(() => {
-    console.log('셀러보드 확장프로그램 설치됨');
-    initializeStorage();
-});
-
-/**
- * Storage 초기화
- */
 async function initializeStorage() {
     await chrome.storage.local.set({
         products: [],
@@ -28,6 +14,24 @@ async function initializeStorage() {
         }
     });
     console.log('Storage 초기화 완료');
+}
+
+/**
+ * 모니터링 서비스 초기화
+ */
+async function initializeMonitoring() {
+    try {
+        // monitoring-service.js 동적 로드
+        if (!monitoringService) {
+            await import(chrome.runtime.getURL('background/monitoring-service.js'));
+            monitoringService = window.monitoringService;
+        }
+
+        await monitoringService.initialize();
+        console.log('Monitoring Service 초기화 완료');
+    } catch (error) {
+        console.error('Monitoring Service 초기화 실패:', error);
+    }
 }
 
 /**
@@ -59,6 +63,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             openDashboard();
             sendResponse({ success: true });
             break;
+
+        // 모니터링 관련 액션
+        case 'startMonitoring':
+            handleStartMonitoring(message.product, message.options, sendResponse);
+            return true;
+
+        case 'stopMonitoring':
+            handleStopMonitoring(message.productId, sendResponse);
+            return true;
+
+        case 'getMonitoringProducts':
+            handleGetMonitoringProducts(sendResponse);
+            return true;
     }
 });
 
