@@ -361,8 +361,6 @@ class MonitoringService {
 // 싱글톤 인스턴스
 const monitoringService = new MonitoringService();
 
-// Export
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = MonitoringService;
-    module.exports.monitoringService = monitoringService;
-}
+// ES6 Export
+export { MonitoringService, monitoringService };
+export default MonitoringService;

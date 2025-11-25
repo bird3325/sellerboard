@@ -4,8 +4,6 @@
 
 console.log('셀러보드 Content Script 로드 시작');
 
-let productParser;
-
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initContentScript);
 } else {
@@ -14,7 +12,12 @@ if (document.readyState === 'loading') {
 
 function initContentScript() {
     console.log('셀러보드 Content Script 초기화 완료');
-    productParser = new ProductParser();
+    // ParserManager는 manifest.json에서 먼저 로드되므로 global로 접근 가능
+    if (typeof parserManager !== 'undefined') {
+        parserManager.initialize();
+    } else {
+        console.error('ParserManager not loaded!');
+    }
     setupMessageListeners();
     setupKeyboardShortcuts();
 }
@@ -59,8 +62,13 @@ function setupMessageListeners() {
 function handleCollectProduct(sendResponse) {
     (async () => {
         try {
-            console.log('상품 데이터 추출 시작');
-            const productData = await productParser.extractProductData();
+            console.log('상품 데이터 추출 시작 (V2.0)');
+
+            if (typeof parserManager === 'undefined') {
+                throw new Error('ParserManager not initialized');
+            }
+
+            const productData = await parserManager.parseCurrentPage();
             console.log('추출된 데이터:', productData);
 
             if (!productData.name && !productData.price) {
@@ -82,14 +90,21 @@ function handleCollectProduct(sendResponse) {
  * 상품 링크 추출 처리
  */
 function handleGetProductLinks(sendResponse) {
-    try {
-        const links = productParser.extractProductLinks();
-        console.log('추출된 링크 수:', links.length);
-        sendResponse({ success: true, links: links });
-    } catch (error) {
-        console.error('링크 추출 오류:', error);
-        sendResponse({ success: false, error: error.message });
-    }
+    (async () => {
+        try {
+            if (typeof parserManager === 'undefined') {
+                throw new Error('ParserManager not initialized');
+            }
+
+            const links = await parserManager.collectLinks();
+            console.log('추출된 링크 수:', links.length);
+            sendResponse({ success: true, links: links });
+        } catch (error) {
+            console.error('링크 추출 오류:', error);
+            sendResponse({ success: false, error: error.message });
+        }
+    })();
+    return true;
 }
 
 /**

@@ -239,6 +239,31 @@ class BaseParser {
             }, timeout);
         });
     }
+    /**
+     * 상품 링크 추출 (몰털이용)
+     * @returns {Promise<string[]>}
+     */
+    async extractProductLinks() {
+        const links = [];
+        try {
+            document.querySelectorAll('a[href]').forEach(a => {
+                const h = a.href;
+                // 일반적인 상품 URL 패턴
+                if (h && (
+                    h.includes('/item/') ||
+                    h.includes('/product/') ||
+                    h.includes('/goods/') ||
+                    h.includes('/products/') ||
+                    h.includes('smartstore.naver.com') && h.includes('/products/')
+                )) {
+                    links.push(h);
+                }
+            });
+        } catch (e) {
+            console.error('Link extraction failed:', e);
+        }
+        return [...new Set(links)];
+    }
 }
 
 // Export

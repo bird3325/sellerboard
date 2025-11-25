@@ -98,12 +98,28 @@ class ParserManager {
     isPlatformSupported(platform) {
         return this.parsers.has(platform);
     }
+    /**
+     * 현재 페이지에서 상품 링크 수집
+     * @returns {Promise<string[]>} 링크 목록
+     */
+    async collectLinks() {
+        await this.initialize();
+        const platform = PlatformDetector.detect();
+        const parser = this.getParser(platform);
+        return await parser.extractProductLinks();
+    }
 }
 
 // 싱글톤 인스턴스
 const parserManager = new ParserManager();
 
-// Export
+// Browser global export (V2.0)
+if (typeof window !== 'undefined') {
+    window.parserManager = parserManager;
+    window.ParserManager = ParserManager;
+}
+
+// Export for CommonJS (fallback)
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = ParserManager;
     module.exports.parserManager = parserManager;

@@ -6,6 +6,13 @@ document.addEventListener('DOMContentLoaded', () => {
     loadStats();
     loadRecentProducts();
     setupEventListeners();
+
+    // 이미지 로드 에러 처리 (CSP 준수)
+    document.addEventListener('error', (e) => {
+        if (e.target.tagName === 'IMG') {
+            e.target.style.display = 'none';
+        }
+    }, true);
 });
 
 /**
@@ -115,7 +122,6 @@ async function loadRecentProducts() {
         src="${product.images && product.images[0] ? product.images[0] : ''}" 
         alt="${product.name}"
         class="recent-item-image"
-        onerror="this.style.display='none'"
       >
       <div class="recent-item-info">
         <div class="recent-item-name" title="${product.name}">${product.name || '상품명 없음'}</div>

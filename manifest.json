@@ -21,7 +21,8 @@
     ]
   },
   "background": {
-    "service_worker": "background/service-worker.js"
+    "service_worker": "background/service-worker.js",
+    "type": "module"
   },
   "content_scripts": [
     {
@@ -29,7 +30,17 @@
         "<all_urls>"
       ],
       "js": [
-        "lib/parser.js",
+        "lib/platform-detector.js",
+        "parsers/base-parser.js",
+        "parsers/chinese-platforms/aliexpress-parser.js",
+        "parsers/chinese-platforms/1688-parser.js",
+        "parsers/chinese-platforms/taobao-parser.js",
+        "parsers/korean-platforms/naver-parser.js",
+        "parsers/korean-platforms/coupang-parser.js",
+        "parsers/korean-platforms/gmarket-parser.js",
+        "parsers/korean-platforms/auction-parser.js",
+        "parsers/korean-platforms/11st-parser.js",
+        "parsers/parser-manager.js",
         "content/content-script.js",
         "content/drag-selector.js",
         "content/widget.js"

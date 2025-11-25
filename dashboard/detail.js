@@ -1,19 +1,8 @@
-/**
- * 상품 상세 페이지 로직
- */
-
-document.addEventListener('DOMContentLoaded', () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const productId = parseInt(urlParams.get('id'));
-
-    if (productId) {
-        loadProductDetail(productId);
-    } else {
-        alert('잘못된 접근입니다.');
-        window.location.href = 'dashboard.html';
+alert('잘못된 접근입니다.');
+window.location.href = 'dashboard.html';
     }
 
-    setupEventListeners();
+setupEventListeners();
 });
 
 let currentProduct = null;
@@ -109,7 +98,7 @@ function renderProductDetail(product) {
                          alt="${product.name}" 
                          class="main-image" 
                          id="main-image"
-                         onerror="this.style.display='none'">
+                         >
                 </div>
                 <div class="thumbnail-list" id="thumbnail-list">
                     ${renderThumbnails(product.images)}
@@ -171,7 +160,7 @@ function renderThumbnails(images) {
         <img src="${img}"
              class="thumbnail ${index === 0 ? 'active' : ''}"
              data-src="${img}"
-             onerror="this.style.display='none'">
+             >
             `).join('');
 }
 
@@ -203,7 +192,7 @@ function renderOptions(options) {
                     <td>${formatOptionPrice(val)}</td>
                     <td>${formatStock(val.stock)}</td>
                     <td>
-                        ${val.image ? `<img src="${val.image}" class="option-image" onerror="this.style.display='none'">` : '-'}
+                        ${val.image ? `<img src="${val.image}" class="option-image">` : '-'}
                     </td>
                 </tr>
             `;

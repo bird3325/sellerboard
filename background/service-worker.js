@@ -1,3 +1,6 @@
+// ES6 Imports for V2.0 services
+import { MonitoringService } from './monitoring-service.js';
+
 async function initializeStorage() {
     await chrome.storage.local.set({
         products: [],
@@ -17,22 +20,43 @@ async function initializeStorage() {
 }
 
 /**
+ * 서비스 변수 선언
+ */
+let monitoringService;
+let geminiService;
+let marginAnalysisService;
+
+/**
  * 모니터링 서비스 초기화
  */
 async function initializeMonitoring() {
     try {
-        // monitoring-service.js 동적 로드
-        if (!monitoringService) {
-            await import(chrome.runtime.getURL('background/monitoring-service.js'));
-            monitoringService = window.monitoringService;
-        }
-
+        monitoringService = new MonitoringService();
         await monitoringService.initialize();
         console.log('Monitoring Service 초기화 완료');
     } catch (error) {
         console.error('Monitoring Service 초기화 실패:', error);
     }
 }
+
+/**
+ * AI 및 마진 분석 서비스 초기화
+ */
+async function initializeServices() {
+    try {
+        // AI/Margin 서비스는 web_accessible_resources로 로드
+        // 필요할 때 동적으로 로드하도록 보류
+        console.log('AI & Margin Services will be loaded on demand');
+    } catch (error) {
+        console.error('Service 초기화 실패:', error);
+    }
+}
+
+// 초기화 실행
+initializeStorage().then(() => {
+    initializeMonitoring();
+    initializeServices();
+});
 
 /**
  * 메시지 리스너
@@ -76,8 +100,88 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case 'getMonitoringProducts':
             handleGetMonitoringProducts(sendResponse);
             return true;
+
+        // AI 관련 액션
+        case 'generateDescription':
+            handleGenerateDescription(message.product, sendResponse);
+            return true;
+
+        case 'optimizeTitle':
+            handleOptimizeTitle(message.productName, sendResponse);
+            return true;
+
+        // 마진 분석 관련 액션
+        case 'analyzeMargin':
+            handleAnalyzeMargin(message.product, sendResponse);
+            return true;
     }
 });
+
+/**
+ * AI 상세페이지 생성 처리
+ */
+async function handleGenerateDescription(product, sendResponse) {
+    try {
+        // 동적 로드
+        if (!geminiService && typeof GeminiService !== 'undefined') {
+            geminiService = new GeminiService();
+        }
+
+        if (!geminiService) {
+            throw new Error('GeminiService not available');
+        }
+
+        const result = await geminiService.generateDescription(product);
+        sendResponse({ success: true, data: result });
+    } catch (error) {
+        console.error('AI 생성 오류:', error);
+        sendResponse({ success: false, error: error.message });
+    }
+}
+
+/**
+ * AI 상품명 최적화 처리
+ */
+async function handleOptimizeTitle(productName, sendResponse) {
+    try {
+        // 동적 로드
+        if (!geminiService && typeof GeminiService !== 'undefined') {
+            geminiService = new GeminiService();
+        }
+
+        if (!geminiService) {
+            throw new Error('GeminiService not available');
+        }
+
+        const result = await geminiService.optimizeProductName(productName);
+        sendResponse({ success: true, data: result });
+    } catch (error) {
+        console.error('AI 최적화 오류:', error);
+        sendResponse({ success: false, error: error.message });
+    }
+}
+
+/**
+ * 마진 분석 처리
+ */
+async function handleAnalyzeMargin(product, sendResponse) {
+    try {
+        // 동적 로드
+        if (!marginAnalysisService && typeof MarginAnalysisService !== 'undefined') {
+            marginAnalysisService = new MarginAnalysisService();
+        }
+
+        if (!marginAnalysisService) {
+            throw new Error('MarginAnalysisService not available');
+        }
+
+        const analysis = await marginAnalysisService.analyzeMargin(product);
+        sendResponse({ success: true, data: analysis });
+    } catch (error) {
+        console.error('마진 분석 오류:', error);
+        sendResponse({ success: false, error: error.message });
+    }
+}
 
 /**
  * 상품 저장 처리
@@ -85,6 +189,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function handleSaveProduct(productData, sendResponse) {
     try {
         console.log('상품 저장 시작:', productData);
+
+        // 마진 분석 자동 실행 (옵션)
+        if (typeof MarginAnalysisService !== 'undefined') {
+            try {
+                if (!marginAnalysisService) {
+                    marginAnalysisService = new MarginAnalysisService();
+                }
+                const marginData = await marginAnalysisService.analyzeMargin(productData);
+                productData.marginAnalysis = marginData;
+            } catch (e) {
+                console.warn('자동 마진 분석 실패:', e);
+            }
+        }
 
         // 현재 상품 목록 가져오기
         const result = await chrome.storage.local.get(['products']);

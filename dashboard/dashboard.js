@@ -145,6 +145,9 @@ function setupEventListeners() {
 
     // 상품 클릭 이벤트 위임
     setupProductClickDelegation();
+    setupActionButtonDelegation();
+    setupPaginationDelegation();
+    setupImageErrorHandling();
 }
 
 /**
@@ -229,7 +232,7 @@ function renderProducts() {
           src="${product.images && product.images[0] ? product.images[0] : ''}" 
           alt="${product.name}"
           class="product-image"
-          onerror="this.style.display='none'"
+          class="product-thumbnail"
         >
       </td>
       <td>
@@ -242,8 +245,8 @@ function renderProducts() {
       <td class="product-date">${formatDate(product.collectedAt)}</td>
       <td>
         <div class="action-btns">
-          <button class="action-btn" onclick="openProduct('${product.url}')" title="열기">🔗</button>
-          <button class="action-btn" onclick="deleteProduct(${product.id})" title="삭제">🗑️</button>
+          <button class="action-btn open-product-btn" data-url="${product.url}" title="열기">🔗</button>
+          <button class="action-btn delete-product-btn" data-id="${product.id}" title="삭제">🗑️</button>
         </div>
       </td>
     </tr>
@@ -271,6 +274,39 @@ function setupProductClickDelegation() {
     }
 }
 
+// 액션 버튼 이벤트 위임
+function setupActionButtonDelegation() {
+    const tbody = document.getElementById('products-table-body');
+    if (tbody) {
+        tbody.addEventListener('click', (e) => {
+            const target = e.target.closest('button');
+            if (!target) return;
+
+            if (target.classList.contains('open-product-btn')) {
+                const url = target.dataset.url;
+                if (url) openProduct(url);
+            } else if (target.classList.contains('delete-product-btn')) {
+                const id = parseInt(target.dataset.id);
+                if (id) deleteProduct(id);
+            }
+        });
+    }
+}
+
+// 페이지네이션 이벤트 위임
+function setupPaginationDelegation() {
+    const pagination = document.getElementById('pagination');
+    if (pagination) {
+        pagination.addEventListener('click', (e) => {
+            const target = e.target.closest('.page-btn');
+            if (!target || target.disabled) return;
+
+            const page = parseInt(target.dataset.page);
+            if (page) changePage(page);
+        });
+    }
+}
+
 /**
  * 페이지네이션 렌더링
  */
@@ -286,19 +322,19 @@ function renderPagination() {
     let html = '';
 
     // 이전 버튼
-    html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">‹</button>`;
+    html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} data-page="${currentPage - 1}">‹</button>`;
 
     // 페이지 번호
     for (let i = 1; i <= totalPages; i++) {
         if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
-            html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
+            html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
         } else if (i === currentPage - 3 || i === currentPage + 3) {
             html += `<span>...</span>`;
         }
     }
 
     // 다음 버튼
-    html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">›</button>`;
+    html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} data-page="${currentPage + 1}">›</button>`;
 
     pagination.innerHTML = html;
 }
@@ -306,10 +342,10 @@ function renderPagination() {
 /**
  * 페이지 변경
  */
-window.changePage = function (page) {
+function changePage(page) {
     currentPage = page;
     renderProducts();
-};
+}
 
 /**
  * 통계 로드
@@ -422,14 +458,14 @@ function downloadFile(blob, filename) {
 /**
  * 상품 열기
  */
-window.openProduct = function (url) {
+function openProduct(url) {
     chrome.tabs.create({ url });
-};
+}
 
 /**
  * 상품 삭제
  */
-window.deleteProduct = async function (id) {
+async function deleteProduct(id) {
     if (!confirm('이 상품을 삭제하시겠습니까?')) return;
 
     const result = await chrome.storage.local.get(['products']);
@@ -438,7 +474,7 @@ window.deleteProduct = async function (id) {
 
     await chrome.storage.local.set({ products: filtered });
     loadProducts();
-};
+}
 
 /**
  * 유틸리티 함수

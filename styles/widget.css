@@ -19,6 +19,29 @@
   padding: 0;
 }
 
+/* 플로팅 버튼 (새로 추가됨) */
+.sb-btn-float {
+  width: 50px;
+  height: 50px;
+  background: linear-gradient(135deg, var(--sb-primary), var(--sb-primary-dark));
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 24px;
+  font-family: system-ui, sans-serif;
+  user-select: none;
+  transition: transform 0.2s;
+}
+
+.sb-btn-float:active {
+  cursor: grabbing;
+}
+
 /* 팝업 컨테이너 - 최상단 노출 보장 */
 .sb-popup-container {
   position: fixed !important;
