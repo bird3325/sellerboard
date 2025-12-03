@@ -141,17 +141,19 @@ function setupKeyboardShortcuts() {
  * 동적 콘텐츠 감지 (SPA 페이지 전환)
  */
 let lastUrl = location.href;
-new MutationObserver(() => {
-    const currentUrl = location.href;
-    if (currentUrl !== lastUrl) {
-        lastUrl = currentUrl;
-        console.log('페이지 변경 감지:', currentUrl);
+if (document.body) {
+    new MutationObserver(() => {
+        const currentUrl = location.href;
+        if (currentUrl !== lastUrl) {
+            lastUrl = currentUrl;
+            console.log('페이지 변경 감지:', currentUrl);
 
-        if (window.sellerboardWidget) {
-            window.sellerboardWidget.updateStats();
+            if (window.sellerboardWidget) {
+                window.sellerboardWidget.updateStats();
+            }
         }
-    }
-}).observe(document.body, {
-    subtree: true,
-    childList: true
-});
+    }).observe(document.body, {
+        subtree: true,
+        childList: true
+    });
+}

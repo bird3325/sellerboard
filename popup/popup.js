@@ -1,172 +1,306 @@
 /**
- * 팝업 로직
+ * Popup 스크립트 (Auth & Stats)
  */
 
-document.addEventListener('DOMContentLoaded', () => {
-    loadStats();
-    loadRecentProducts();
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadSavedId();
+    await checkLoginStatus();
     setupEventListeners();
-
-    // 이미지 로드 에러 처리 (CSP 준수)
-    document.addEventListener('error', (e) => {
-        if (e.target.tagName === 'IMG') {
-            e.target.style.display = 'none';
-        }
-    }, true);
 });
 
 /**
  * 이벤트 리스너 설정
  */
 function setupEventListeners() {
-    // 현재 페이지 수집
-    document.getElementById('collect-current-btn')?.addEventListener('click', async () => {
-        const btn = document.getElementById('collect-current-btn');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="icon">⏳</span><span class="label">수집 중...</span>';
+    // 로그인
+    document.getElementById('login-btn').addEventListener('click', handleLogin);
 
-        try {
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    // 로그아웃
+    document.getElementById('logout-btn').addEventListener('click', handleLogout);
 
-            chrome.tabs.sendMessage(tab.id, { action: 'collectProduct' }, (response) => {
-                if (chrome.runtime.lastError) {
-                    btn.innerHTML = '<span class="icon">✗</span><span class="label">이 페이지는 지원되지 않습니다</span>';
-                    setTimeout(() => {
-                        btn.innerHTML = '<span class="icon">📦</span><span class="label">현재 페이지 수집</span>';
-                        btn.disabled = false;
-                    }, 2000);
-                    return;
-                }
+    // 대시보드
+    document.getElementById('dashboard-btn').addEventListener('click', openDashboard);
 
-                if (response?.success) {
-                    chrome.runtime.sendMessage({
-                        action: 'saveProduct',
-                        data: response.data
-                    }, () => {
-                        btn.innerHTML = '<span class="icon">✓</span><span class="label">수집 완료!</span>';
-                        loadStats();
-                        loadRecentProducts();
-
-                        setTimeout(() => {
-                            btn.innerHTML = '<span class="icon">📦</span><span class="label">현재 페이지 수집</span>';
-                            btn.disabled = false;
-                        }, 2000);
-                    });
-                } else {
-                    throw new Error(response?.error || '수집 실패');
-                }
-            });
-        } catch (error) {
-            console.error('수집 오류:', error);
-            btn.innerHTML = '<span class="icon">✗</span><span class="label">수집 실패</span>';
-            setTimeout(() => {
-                btn.innerHTML = '<span class="icon">📦</span><span class="label">현재 페이지 수집</span>';
-                btn.disabled = false;
-            }, 2000);
-        }
+    // 엔터키 로그인 지원
+    document.getElementById('password').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleLogin();
     });
 
-    // 대시보드 열기
-    document.getElementById('open-dashboard-btn')?.addEventListener('click', () => {
-        chrome.runtime.sendMessage({ action: 'openDashboard' });
-    });
+    // 비밀번호 보기 토글
+    document.getElementById('toggle-password').addEventListener('click', togglePasswordVisibility);
 
-    // 설정
-    document.getElementById('settings-link')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        alert('설정 기능은 곧 추가됩니다.');
-    });
-
-    // 도움말
-    document.getElementById('help-link')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        chrome.tabs.create({
-            url: 'https://github.com/sellerboard/help'
-        });
-    });
-}
-
-/**
- * 통계 로드
- */
-function loadStats() {
-    chrome.runtime.sendMessage({ action: 'getStats' }, (response) => {
-        if (response) {
-            document.getElementById('stat-today').textContent = response.today || 0;
-            document.getElementById('stat-total').textContent = response.total || 0;
-        }
-    });
-}
-
-/**
- * 최근 수집 상품 로드
- */
-async function loadRecentProducts() {
-    const result = await chrome.storage.local.get(['products']);
-    const products = result.products || [];
-
-    const recentList = document.getElementById('recent-products');
-
-    if (products.length === 0) {
-        recentList.innerHTML = '<div class="empty-state">아직 수집한 상품이 없습니다</div>';
-        return;
-    }
-
-    const recentProducts = products
-        .sort((a, b) => new Date(b.collectedAt) - new Date(a.collectedAt))
-        .slice(0, 5);
-
-    recentList.innerHTML = recentProducts.map(product => `
-    <div class="recent-item" data-url="${product.url}">
-      <img 
-        src="${product.images && product.images[0] ? product.images[0] : ''}" 
-        alt="${product.name}"
-        class="recent-item-image"
-      >
-      <div class="recent-item-info">
-        <div class="recent-item-name" title="${product.name}">${product.name || '상품명 없음'}</div>
-        <div class="recent-item-meta">
-          <span class="recent-item-time">${formatTime(product.collectedAt)}</span>
-          <span class="recent-item-price">${formatPrice(product.price)}</span>
-        </div>
-      </div>
-    </div>
-  `).join('');
-
-    recentList.querySelectorAll('.recent-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const url = item.dataset.url;
+    // 외부 링크 처리
+    const links = document.querySelectorAll('.links a');
+    links.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const url = 'https://sellerboard.com/find-account';
             chrome.tabs.create({ url });
         });
     });
+
+    // 수집 모드 버튼 이벤트
+    document.getElementById('mode-product').addEventListener('click', () => triggerMode('trigger_product'));
+    document.getElementById('mode-keyword').addEventListener('click', async () => {
+        const keyword = prompt('수집할 키워드를 입력하세요:');
+        if (keyword) {
+            triggerMode('trigger_keyword', { keyword });
+        }
+    });
+    document.getElementById('mode-area').addEventListener('click', () => triggerMode('trigger_area'));
+    document.getElementById('mode-store').addEventListener('click', () => triggerMode('trigger_store'));
 }
 
 /**
- * 시간 포맷팅
+ * 로딩 표시
  */
-function formatTime(dateString) {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+function showLoading() {
+    document.getElementById('loading-overlay').style.display = 'flex';
 
-    if (diffMins < 1) return '방금 전';
-    if (diffMins < 60) return `${diffMins}분 전`;
-    if (diffHours < 24) return `${diffHours}시간 전`;
-    if (diffDays < 7) return `${diffDays}일 전`;
-
-    return date.toLocaleDateString('ko-KR');
+    // 모든 버튼 비활성화
+    const buttons = document.querySelectorAll('.mode-btn, .btn-logout, .btn-primary');
+    buttons.forEach(btn => btn.disabled = true);
 }
 
 /**
- * 가격 포맷팅
+ * 로딩 숨김
  */
-function formatPrice(price) {
-    if (!price) return '-';
-    return new Intl.NumberFormat('ko-KR', {
-        style: 'currency',
-        currency: 'KRW'
-    }).format(price);
+function hideLoading() {
+    document.getElementById('loading-overlay').style.display = 'none';
+
+    // 모든 버튼 재활성화
+    const buttons = document.querySelectorAll('.mode-btn, .btn-logout, .btn-primary');
+    buttons.forEach(btn => btn.disabled = false);
+}
+
+/**
+ * 비밀번호 보기 토글
+ */
+function togglePasswordVisibility() {
+    const passwordInput = document.getElementById('password');
+    const toggleBtn = document.getElementById('toggle-password');
+
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleBtn.textContent = '🔒';
+    } else {
+        passwordInput.type = 'password';
+        toggleBtn.textContent = '👁️';
+    }
+}
+
+/**
+ * 저장된 아이디 불러오기
+ */
+async function loadSavedId() {
+    const result = await chrome.storage.local.get(['savedEmail', 'keepLogin']);
+
+    if (result.savedEmail) {
+        document.getElementById('email').value = result.savedEmail;
+        document.getElementById('save-id').checked = true;
+    }
+
+    if (result.keepLogin) {
+        document.getElementById('keep-login').checked = true;
+    }
+}
+
+/**
+ * 로그인 상태 확인
+ */
+async function checkLoginStatus() {
+    try {
+        const response = await chrome.runtime.sendMessage({ action: 'getSession' });
+
+        if (response && response.session) {
+            showProfile(response.session.user);
+            await loadStats();
+        } else {
+            showLogin();
+        }
+    } catch (error) {
+        console.error('세션 확인 실패:', error);
+        showLogin();
+    }
+}
+
+/**
+ * 로그인 처리
+ */
+async function handleLogin() {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const saveIdChecked = document.getElementById('save-id').checked;
+    const keepLoginChecked = document.getElementById('keep-login').checked;
+    const messageEl = document.getElementById('login-message');
+
+    if (!email || !password) {
+        showMessage(messageEl, '이메일과 비밀번호를 입력해주세요.', 'error');
+        return;
+    }
+
+    showMessage(messageEl, '로그인 중...', 'info');
+
+    try {
+        const response = await chrome.runtime.sendMessage({
+            action: 'signIn',
+            email,
+            password
+        });
+
+        if (response.success) {
+            if (saveIdChecked) {
+                await chrome.storage.local.set({ savedEmail: email });
+            } else {
+                await chrome.storage.local.remove(['savedEmail']);
+            }
+
+            await chrome.storage.local.set({ keepLogin: keepLoginChecked });
+
+            showMessage(messageEl, '로그인 성공!', 'success');
+            showProfile(response.user);
+            await loadStats();
+        } else {
+            showMessage(messageEl, '로그인 실패: ' + response.error, 'error');
+        }
+    } catch (error) {
+        console.error('로그인 오류:', error);
+        showMessage(messageEl, '로그인 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+/**
+ * 로그아웃 처리
+ */
+async function handleLogout() {
+    try {
+        await chrome.runtime.sendMessage({ action: 'signOut' });
+        showLogin();
+
+        const result = await chrome.storage.local.get(['savedEmail']);
+        if (!result.savedEmail) {
+            document.getElementById('email').value = '';
+        }
+        document.getElementById('password').value = '';
+        document.getElementById('login-message').style.display = 'none';
+
+        document.getElementById('total-count').textContent = '-';
+        document.getElementById('today-count').textContent = '-';
+    } catch (error) {
+        console.error('로그아웃 오류:', error);
+    }
+}
+
+/**
+ * 대시보드 열기
+ */
+function openDashboard() {
+    const dashboardUrl = 'https://supabase.com/dashboard/project/ukjrsqthaibsvvycwduu/editor';
+    chrome.tabs.create({ url: dashboardUrl });
+}
+
+/**
+ * 수집 모드 실행
+ */
+async function triggerMode(action, data) {
+    data = data || {};
+
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tab = tabs[0];
+
+    if (!tab) {
+        alert('활성 탭을 찾을 수 없습니다.');
+        return;
+    }
+
+    // Chrome 내부 페이지 체크
+    if (tab.url && (tab.url.startsWith('chrome://') || tab.url.startsWith('about:') || tab.url.startsWith('edge://'))) {
+        alert('이 페이지에서는 수집 기능을 사용할 수 없습니다.\n\n상품 페이지(알리익스프레스, 타오바오, 1688 등)로 이동한 후 다시 시도해주세요.');
+        return;
+    }
+
+    // 로딩 시작
+    showLoading();
+
+    try {
+        // Content script 로드 확인
+        try {
+            await chrome.tabs.sendMessage(tab.id, { action: 'ping' });
+        } catch (pingError) {
+            hideLoading();
+            alert('페이지 준비가 필요합니다.\n\n현재 페이지를 새로고침(F5)한 후 다시 시도해주세요.');
+            return;
+        }
+
+        // 실제 작업 수행
+        const message = { action: action };
+        if (data.keyword) {
+            message.keyword = data.keyword;
+        }
+
+        const response = await chrome.tabs.sendMessage(tab.id, message);
+
+        console.log('수집 모드 응답:', response);
+
+        hideLoading();
+
+        if (response && response.success) {
+            const msg = response.message || '작업이 완료되었습니다.';
+            alert('성공: ' + msg);
+            await loadStats();
+        } else {
+            if (action === 'trigger_keyword') return;
+            const errorMsg = (response && response.error) ? response.error : '알 수 없는 오류가 발생했습니다.';
+            alert('실패: ' + errorMsg);
+        }
+    } catch (error) {
+        console.error('모드 실행 오류:', error);
+        hideLoading();
+
+        const errorMessage = error.message || String(error);
+        if (errorMessage.indexOf('Could not establish connection') >= 0) {
+            alert('페이지와 연결할 수 없습니다.\n\n해결 방법:\n1. 페이지를 새로고침(F5)한 후 다시 시도\n2. 상품 페이지(알리익스프레스, 타오바오 등)로 이동\n3. 확장 프로그램 새로고침');
+        } else {
+            alert('오류가 발생했습니다: ' + errorMessage);
+        }
+    }
+}
+
+/**
+ * 로그인 화면 표시
+ */
+function showLogin() {
+    document.getElementById('login-section').style.display = 'block';
+    document.getElementById('profile-section').style.display = 'none';
+}
+
+/**
+ * 프로필 화면 표시
+ */
+function showProfile(user) {
+    document.getElementById('login-section').style.display = 'none';
+    document.getElementById('profile-section').style.display = 'block';
+}
+
+/**
+ * 통계 불러오기
+ */
+async function loadStats() {
+    try {
+        const stats = await chrome.runtime.sendMessage({ action: 'getStats' });
+
+        document.getElementById('total-count').textContent = stats.total.toLocaleString();
+        document.getElementById('today-count').textContent = stats.today.toLocaleString();
+    } catch (error) {
+        console.error('통계 불러오기 실패:', error);
+    }
+}
+
+/**
+ * 메시지 표시
+ */
+function showMessage(element, message, type) {
+    element.textContent = message;
+    element.className = 'status-message ' + type;
+    element.style.display = 'block';
 }

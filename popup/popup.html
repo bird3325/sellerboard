@@ -4,61 +4,144 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>셀러보드</title>
+  <title>SellerBoard V2.1</title>
   <link rel="stylesheet" href="popup.css">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
-  <div class="popup-container">
-    <!-- 헤더 -->
-    <div class="popup-header">
-      <div class="popup-logo">
-        <div class="logo-icon">S</div>
-        <span class="popup-title">셀러보드</span>
-      </div>
-      <span class="version">v1.0</span>
-    </div>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>SellerBoard V2.1</h1>
+      <p>글로벌 셀러를 위한 통합 대시보드</p>
+    </header>
 
-    <!-- 빠른 액션 -->
-    <div class="quick-actions">
-      <button class="action-btn primary" id="collect-current-btn">
-        <span class="icon">📦</span>
-        <span class="label">현재 페이지 수집</span>
-      </button>
+    <div class="content">
+      <!-- Login Section -->
+      <section id="login-section">
+        <!-- Form -->
+        <div class="login-form">
+          <div class="form-group">
+            <label for="email">이메일</label>
+            <div class="input-wrapper">
+              <span class="icon email-icon">✉️</span>
+              <input type="email" id="email" placeholder="name@example.com">
+            </div>
+          </div>
 
-      <button class="action-btn secondary" id="open-dashboard-btn">
-        <span class="icon">📊</span>
-        <span class="label">대시보드 열기</span>
-      </button>
-    </div>
+          <div class="form-group">
+            <label for="password">비밀번호</label>
+            <div class="input-wrapper">
+              <span class="icon lock-icon">🔒</span>
+              <input type="password" id="password" placeholder="••••••••">
+              <button type="button" id="toggle-password" class="toggle-btn">👁️</button>
+            </div>
+          </div>
 
-    <!-- 통계 -->
-    <div class="stats-section">
-      <h3 class="section-title">수집 통계</h3>
-      <div class="stats-grid">
-        <div class="stat-item">
-          <span class="stat-value" id="stat-today">0</span>
-          <span class="stat-label">오늘 수집</span>
+          <div class="options">
+            <label class="checkbox-label">
+              <input type="checkbox" id="save-id">
+              <span>아이디 저장</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="keep-login">
+              <span>로그인 상태 유지</span>
+            </label>
+          </div>
+
+          <button id="login-btn" class="btn-primary">
+            ➔ 로그인
+          </button>
+
+          <div class="links">
+            <a href="#">아이디 찾기</a>
+            <span class="divider">|</span>
+            <a href="#">비밀번호 찾기</a>
+          </div>
         </div>
-        <div class="stat-item">
-          <span class="stat-value" id="stat-total">0</span>
-          <span class="stat-label">전체 상품</span>
+
+        <div id="login-message" class="status-message"></div>
+      </section>
+
+      <!-- Profile Section (After Login) -->
+      <section id="profile-section" style="display: none;">
+        <div class="profile-header">
+          <h3>대시보드</h3>
+          <div class="header-buttons">
+            <button id="dashboard-btn" class="btn-dashboard" title="대시보드 열기">
+              <span>📊 대시보드</span>
+            </button>
+            <button id="logout-btn" class="btn-logout" title="로그아웃">
+              <span>로그아웃</span>
+              <span class="icon">🚪</span>
+            </button>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <!-- 최근 수집 -->
-    <div class="recent-section">
-      <h3 class="section-title">최근 수집 상품</h3>
-      <div class="recent-list" id="recent-products">
-        <div class="empty-state">로딩 중...</div>
-      </div>
-    </div>
+        <!-- Collection Modes -->
+        <div class="modes-section">
+          <div class="modes-grid">
+            <button class="mode-btn" id="mode-product">
+              <div class="icon-circle product">📦</div>
+              <span class="mode-title">상품수집</span>
+              <span class="mode-desc">현재 상품 저장</span>
+            </button>
+            <button class="mode-btn" id="mode-keyword">
+              <div class="icon-circle keyword">🔍</div>
+              <span class="mode-title">키워드 수집</span>
+              <span class="mode-desc">입력 키워드 저장</span>
+            </button>
+            <button class="mode-btn" id="mode-area">
+              <div class="icon-circle area">🎯</div>
+              <span class="mode-title">영역 드래그</span>
+              <span class="mode-desc">영역 포함 저장</span>
+            </button>
+            <button class="mode-btn" id="mode-store">
+              <div class="icon-circle store">🏪</div>
+              <span class="mode-title">몰털이</span>
+              <span class="mode-desc">상점 전체 저장</span>
+            </button>
+          </div>
+        </div>
 
-    <!-- 푸터 -->
-    <div class="footer">
-      <a href="#" class="footer-link" id="settings-link">설정</a>
-      <a href="#" class="footer-link" id="help-link">도움말</a>
+        <!-- Stats -->
+        <div class="stats-section">
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="label">오늘 수집</span>
+              <span class="value" id="today-count">-</span>
+            </div>
+            <div class="stat-box">
+              <span class="label">전체 수집</span>
+              <span class="value" id="total-count">-</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="loading-content">
+      <div class="stickman-mining">
+        <div class="stickman">
+          <div class="head"></div>
+          <div class="body"></div>
+          <div class="arm-left"></div>
+          <div class="arm-right"></div>
+          <div class="leg-left"></div>
+          <div class="leg-right"></div>
+        </div>
+        <div class="pickaxe"></div>
+        <div class="ground"></div>
+      </div>
+      <div class="loading-text">상품 정보 수집 중...</div>
+      <div class="progress-bar">
+        <div class="progress-fill"></div>
+      </div>
     </div>
   </div>
 
