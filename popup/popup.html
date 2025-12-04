@@ -80,6 +80,16 @@
           </div>
         </div>
 
+        <!-- Duplicate Alert Banner -->
+        <div id="duplicate-alert" class="duplicate-alert" style="display: none;">
+          <div class="alert-icon">⚠️</div>
+          <div class="alert-content">
+            <h4>이미 수집된 상품입니다</h4>
+            <p id="duplicate-info"></p>
+          </div>
+          <button id="view-duplicate-btn" class="btn-view">상품 보기</button>
+        </div>
+
         <!-- Collection Modes -->
         <div class="modes-section">
           <div class="modes-grid">
@@ -103,6 +113,11 @@
               <span class="mode-title">몰털이</span>
               <span class="mode-desc">상점 전체 저장</span>
             </button>
+            <button class="mode-btn batch-btn" id="mode-batch">
+              <div class="icon-circle batch">⚡</div>
+              <span class="mode-title">모든 탭 수집</span>
+              <span class="mode-desc">배치 자동 수집</span>
+            </button>
           </div>
         </div>
 
@@ -120,6 +135,48 @@
           </div>
         </div>
       </section>
+    </div>
+  </div>
+
+  <!-- Batch Progress Modal -->
+  <div id="batch-progress-modal" class="batch-modal" style="display: none;">
+    <div class="modal-content">
+      <h3>🔄 탭 수집 중...</h3>
+      <div class="progress-info">
+        <p id="batch-status" class="batch-status">0/0 완료</p>
+        <p id="batch-current" class="batch-current">준비 중...</p>
+      </div>
+      <div class="progress-bar-container">
+        <div id="batch-progress-fill" class="progress-bar-fill"></div>
+        <span id="batch-percentage" class="progress-percentage">0%</span>
+      </div>
+      <div class="batch-controls">
+        <button id="batch-cancel" class="btn-cancel">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch Result Modal -->
+  <div id="batch-result-modal" class="batch-modal" style="display: none;">
+    <div class="modal-content">
+      <h3 id="result-title">✅ 배치 수집 완료!</h3>
+      <div class="result-stats">
+        <div class="result-item">
+          <span class="result-label">총 탭 수:</span>
+          <span id="result-total">0</span>
+        </div>
+        <div class="result-item success">
+          <span class="result-label">✓ 성공:</span>
+          <span id="result-success">0</span>
+        </div>
+        <div class="result-item failed">
+          <span class="result-label">✗ 실패:</span>
+          <span id="result-failed">0</span>
+        </div>
+      </div>
+      <div class="result-controls">
+        <button id="result-close" class="btn-primary">닫기</button>
+      </div>
     </div>
   </div>
 

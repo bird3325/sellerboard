@@ -91,7 +91,7 @@ class AliexpressParser extends BaseParser {
         const sels = document.querySelectorAll('select');
         sels.forEach(sel => {
             const options = sel.querySelectorAll('option');
-            if (options.length <= 1) return;
+            if (options.length === 0) return;
             const data = { name: this.getLabel(sel), type: 'select', values: [] };
             options.forEach((opt, i) => {
                 const t = opt.textContent.trim();
@@ -157,7 +157,7 @@ class AliexpressParser extends BaseParser {
             const skuItems = prop.querySelectorAll('[class*="sku-item--image"], [class*="sku-item--text"], [data-sku-col], [data-sku-id]');
             this.log(`  "${optName}": ${skuItems.length}개`);
 
-            if (skuItems.length >= 2) {
+            if (skuItems.length >= 1) {
                 const data = { name: optName, type: 'sku', values: [] };
                 const seen = new Set();
 
@@ -256,7 +256,7 @@ class AliexpressParser extends BaseParser {
                         data.values.push(optValue);
                     }
                 }
-                if (data.values.length >= 2) {
+                if (data.values.length >= 1) {
                     opts.push(data);
                     this.log(`  ✅ "${data.name}" (${data.values.length}개, 가격+재고 수집됨)`);
                 }
@@ -477,17 +477,135 @@ class AliexpressParser extends BaseParser {
     async extractSpecs() {
         const specs = {};
 
-        // 상품 속성 테이블
-        const specGroups = document.querySelectorAll('.product-prop, .specification-item');
-        specGroups.forEach(group => {
-            const key = group.querySelector('.propery-title, dt')?.textContent.trim();
-            const value = group.querySelector('.propery-des, dd')?.textContent.trim();
+        // 1. ID 및 Data Attribute 기반 정밀 탐색 (최우선)
+        // 사용자가 제공한 스크린샷 기반: id="nav-specification" 또는 data-pl="product-specs"
+        const specContainer = document.querySelector('#nav-specification, [data-pl="product-specs"]');
+        if (specContainer) {
+            this.log('  ✅ 스펙 컨테이너 발견 (#nav-specification)');
 
-            if (key && value) {
-                specs[key] = value;
+            // 내부의 리스트 찾기 (클래스명 무관하게 ul 태그 탐색)
+            const list = specContainer.querySelector('ul');
+            if (list) {
+                const items = list.querySelectorAll('li');
+                items.forEach(item => {
+                    let key = '';
+                    let value = '';
+
+                    // li 내부의 span 구조 확인
+                    const spans = item.querySelectorAll('span');
+                    if (spans.length >= 2) {
+                        key = spans[0].textContent.trim().replace(/[:：]/g, '');
+                        value = spans[1].textContent.trim();
+                    } else {
+                        // 텍스트 분리 시도
+                        const text = item.textContent.trim();
+                        if (text.includes(':')) {
+                            const parts = text.split(':');
+                            if (parts.length >= 2) {
+                                key = parts[0].trim();
+                                value = parts.slice(1).join(':').trim();
+                            }
+                        } else if (text.includes('：')) { // 전각 콜론
+                            const parts = text.split('：');
+                            if (parts.length >= 2) {
+                                key = parts[0].trim();
+                                value = parts.slice(1).join('：').trim();
+                            }
+                        }
+                    }
+
+                    if (key && value && key.length < 50) {
+                        specs[key] = value;
+                    }
+                });
             }
-        });
+        }
 
+        // 2. 텍스트 기반 헤더 검색 (Fallback)
+        if (Object.keys(specs).length === 0) {
+            const headers = document.querySelectorAll('h2, h3, h4, .title, .section-title, div, span');
+            for (const h of headers) {
+                const t = h.textContent.trim();
+                if (t.length > 50 || t.length < 2) continue;
+
+                if (t.includes('상품 정보') || t.includes('Specifications') || t.includes('Item Specifics') || t.includes('Product Information')) {
+                    this.log(`  🔍 스펙 헤더 후보 발견: "${t}"`);
+
+                    let candidates = [
+                        h.nextElementSibling,
+                        h.parentElement?.nextElementSibling,
+                        h.parentElement?.parentElement?.nextElementSibling
+                    ];
+
+                    for (const container of candidates) {
+                        if (!container) continue;
+                        const items = container.querySelectorAll('li, .do-entry-item, tr, div[class*="item"], div[class*="line"]');
+                        if (items.length > 0) {
+                            items.forEach(item => {
+                                let key = '';
+                                let value = '';
+                                const keyEl = item.querySelector('.do-entry-item-title, .propery-title, .specification-title, .params-title, .title, dt, td:first-child, span[class*="title"], span[class*="key"]');
+                                const valEl = item.querySelector('.do-entry-item-content, .propery-des, .specification-value, .params-value, .value, dd, td:last-child, span[class*="value"], span[class*="content"]');
+
+                                if (keyEl) key = keyEl.textContent.trim().replace(/[:：]/g, '');
+                                if (valEl) value = valEl.textContent.trim();
+
+                                if ((!key || !value) && item.innerText.includes(':')) {
+                                    const parts = item.innerText.split(/[:：]/);
+                                    if (parts.length >= 2) {
+                                        const potentialKey = parts[0].trim();
+                                        if (potentialKey.length < 50) {
+                                            key = potentialKey;
+                                            value = parts.slice(1).join(':').trim();
+                                        }
+                                    }
+                                }
+
+                                if (key && value && key.length < 50) {
+                                    specs[key] = value;
+                                }
+                            });
+                            if (Object.keys(specs).length > 0) break;
+                        }
+                    }
+                    if (Object.keys(specs).length > 0) break;
+                }
+            }
+        }
+
+        // 3. 기존 클래스 기반 수집 (Last Resort)
+        if (Object.keys(specs).length === 0) {
+            const newLayoutItems = document.querySelectorAll('.do-entry-item');
+            newLayoutItems.forEach(item => {
+                const label = item.querySelector('.do-entry-item-val, .do-entry-item-title');
+                const value = item.querySelector('.do-entry-item-text, .do-entry-item-content');
+                if (label && value) {
+                    specs[label.textContent.trim().replace(/[:：]/g, '')] = value.textContent.trim();
+                }
+            });
+
+            // 기존 레이아웃 (product-prop)
+            const oldLayoutItems = document.querySelectorAll('.product-prop');
+            oldLayoutItems.forEach(group => {
+                const key = group.querySelector('.propery-title, .title')?.textContent.trim();
+                const value = group.querySelector('.propery-des, .value')?.textContent.trim();
+                if (key && value) {
+                    specs[key.replace(/[:：]/g, '')] = value;
+                }
+            });
+
+            // Specification List
+            const specItems = document.querySelectorAll('.specification-item, .params-list li');
+            specItems.forEach(item => {
+                const key = item.querySelector('.specification-title, .params-title')?.textContent.trim();
+                const value = item.querySelector('.specification-value, .params-value')?.textContent.trim();
+                if (key && value) {
+                    specs[key.replace(/[:：]/g, '')] = value;
+                }
+            });
+        }
+
+        this.log(`📋 스펙 수집: ${Object.keys(specs).length}개 항목`);
         return specs;
     }
 

@@ -6,6 +6,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadSavedId();
     await checkLoginStatus();
     setupEventListeners();
+
+    // 주기적 로그인 체크 (5초마다)
+    setInterval(checkLoginStatus, 5000);
 });
 
 /**
@@ -49,6 +52,21 @@ function setupEventListeners() {
     });
     document.getElementById('mode-area').addEventListener('click', () => triggerMode('trigger_area'));
     document.getElementById('mode-store').addEventListener('click', () => triggerMode('trigger_store'));
+
+    // 배치 수집 버튼
+    document.getElementById('mode-batch').addEventListener('click', startBatchCollection);
+    document.getElementById('batch-cancel').addEventListener('click', cancelBatchCollection);
+    document.getElementById('result-close').addEventListener('click', closeBatchResult);
+
+    // 중복 상품 보기 버튼
+    document.getElementById('view-duplicate-btn').addEventListener('click', openDashboard);
+
+    // 배치 진행 상황 수신
+    chrome.runtime.onMessage.addListener((message) => {
+        if (message.action === 'batchProgress') {
+            updateBatchProgress(message.data);
+        }
+    });
 }
 
 /**
@@ -115,8 +133,15 @@ async function checkLoginStatus() {
         if (response && response.session) {
             showProfile(response.session.user);
             await loadStats();
+            await checkDuplicateProduct(); // 중복 체크 추가
         } else {
+            // 로그아웃 상태 - 항상 로그인 화면으로 전환
             showLogin();
+            // 비밀번호 필드 초기화 및 메시지 숨김
+            document.getElementById('password').value = '';
+            const msgEl = document.getElementById('login-message');
+            msgEl.textContent = '';
+            msgEl.style.display = 'none';
         }
     } catch (error) {
         console.error('세션 확인 실패:', error);
@@ -272,6 +297,10 @@ async function triggerMode(action, data) {
 function showLogin() {
     document.getElementById('login-section').style.display = 'block';
     document.getElementById('profile-section').style.display = 'none';
+
+    // 수집 버튼 비활성화
+    const modeBtns = document.querySelectorAll('.mode-btn');
+    modeBtns.forEach(btn => btn.disabled = true);
 }
 
 /**
@@ -280,6 +309,10 @@ function showLogin() {
 function showProfile(user) {
     document.getElementById('login-section').style.display = 'none';
     document.getElementById('profile-section').style.display = 'block';
+
+    // 수집 버튼 활성화
+    const modeBtns = document.querySelectorAll('.mode-btn');
+    modeBtns.forEach(btn => btn.disabled = false);
 }
 
 /**
@@ -297,10 +330,124 @@ async function loadStats() {
 }
 
 /**
+ * 중복 상품 체크
+ */
+async function checkDuplicateProduct() {
+    try {
+        // 현재 탭의 URL 가져오기
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab || !tab.url) return;
+
+        // 중복 체크
+        const result = await chrome.runtime.sendMessage({
+            action: 'checkDuplicate',
+            url: tab.url
+        });
+
+        const alertEl = document.getElementById('duplicate-alert');
+        const infoEl = document.getElementById('duplicate-info');
+
+        if (result && result.isDuplicate && result.product) {
+            // 중복 상품 정보 표시
+            const product = result.product;
+            const collectedDate = new Date(product.collected_at).toLocaleDateString('ko-KR');
+            infoEl.innerHTML = `
+                <strong>상품명:</strong> ${product.name}<br>
+                <strong>수집일:</strong> ${collectedDate}
+            `;
+            alertEl.style.display = 'flex';
+        } else {
+            // 중복 아님
+            alertEl.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('중복 체크 실패:', error);
+    }
+}
+
+/**
  * 메시지 표시
  */
 function showMessage(element, message, type) {
     element.textContent = message;
     element.className = 'status-message ' + type;
     element.style.display = 'block';
+}
+
+/**
+ * 배치 수집 시작
+ */
+async function startBatchCollection() {
+    try {
+        // 프로그레스 모달 표시
+        document.getElementById('batch-progress-modal').style.display = 'flex';
+        document.getElementById('batch-status').textContent = '준비 중...';
+        document.getElementById('batch-current').textContent = '상품 페이지 탭 감지 중...';
+        document.getElementById('batch-progress-fill').style.width = '0%';
+        document.getElementById('batch-percentage').textContent = '0%';
+
+        // 배치 수집 요청
+        const response = await chrome.runtime.sendMessage({ action: 'batchCollect' });
+
+        // 프로그레스 모달 닫기
+        document.getElementById('batch-progress-modal').style.display = 'none';
+
+        if (!response.success) {
+            alert(response.error || '배치 수집 실패');
+            return;
+        }
+
+        // 결과 표시
+        showBatchResult(response.results);
+
+    } catch (error) {
+        console.error('배치 수집 오류:', error);
+        document.getElementById('batch-progress-modal').style.display = 'none';
+        alert('배치 수집 중 오류가 발생했습니다.');
+    }
+}
+
+/**
+ * 배치 진행 상황 업데이트
+ */
+function updateBatchProgress(data) {
+    document.getElementById('batch-status').textContent = `${data.current}/${data.total} 완료`;
+    document.getElementById('batch-current').textContent = `현재: ${data.currentTab}`;
+    document.getElementById('batch-progress-fill').style.width = data.percentage + '%';
+    document.getElementById('batch-percentage').textContent = data.percentage + '%';
+}
+
+/**
+ * 배치 결과 표시
+ */
+function showBatchResult(results) {
+    document.getElementById('result-total').textContent = results.total;
+    document.getElementById('result-success').textContent = results.success;
+    document.getElementById('result-failed').textContent = results.failed;
+
+    // 제목 변경 (실패가 있으면 경고)
+    const title = results.failed > 0 ? '⚠️ 배치 수집 완료 (일부 실패)' : '✅ 배치 수집 완료!';
+    document.getElementById('result-title').textContent = title;
+
+    // 결과 모달 표시
+    document.getElementById('batch-result-modal').style.display = 'flex';
+
+    // 통계 다시 로드
+    loadStats();
+}
+
+/**
+ * 배치 수집 취소
+ */
+function cancelBatchCollection() {
+    // TODO: 실제 취소 로직 구현 (서비스 워커에 취소 메시지 전송)
+    document.getElementById('batch-progress-modal').style.display = 'none';
+    alert('배치 수집이 취소되었습니다.');
+}
+
+/**
+ * 결과 모달 닫기
+ */
+function closeBatchResult() {
+    document.getElementById('batch-result-modal').style.display = 'none';
 }
