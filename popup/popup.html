@@ -8,6 +8,9 @@
   <link rel="stylesheet" href="popup.css">
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Pretendard Font (Optional, falling back to system fonts if not available) -->
+  <link rel="stylesheet" as="style" crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css" />
 </head>
 
 <body>
@@ -95,28 +98,38 @@
           <div class="modes-grid">
             <button class="mode-btn" id="mode-product">
               <div class="icon-circle product">📦</div>
-              <span class="mode-title">상품수집</span>
-              <span class="mode-desc">현재 상품 저장</span>
+              <div class="mode-info">
+                <span class="mode-title">상품수집</span>
+                <span class="mode-desc">현재 상품 저장</span>
+              </div>
             </button>
             <button class="mode-btn" id="mode-keyword">
               <div class="icon-circle keyword">🔍</div>
-              <span class="mode-title">키워드 수집</span>
-              <span class="mode-desc">입력 키워드 저장</span>
+              <div class="mode-info">
+                <span class="mode-title">키워드 수집</span>
+                <span class="mode-desc">입력 키워드 저장</span>
+              </div>
             </button>
             <button class="mode-btn" id="mode-area">
               <div class="icon-circle area">🎯</div>
-              <span class="mode-title">영역 드래그</span>
-              <span class="mode-desc">영역 포함 저장</span>
+              <div class="mode-info">
+                <span class="mode-title">영역 드래그</span>
+                <span class="mode-desc">영역 포함 저장</span>
+              </div>
             </button>
             <button class="mode-btn" id="mode-store">
               <div class="icon-circle store">🏪</div>
-              <span class="mode-title">몰털이</span>
-              <span class="mode-desc">상점 전체 저장</span>
+              <div class="mode-info">
+                <span class="mode-title">몰털이</span>
+                <span class="mode-desc">상점 전체 저장</span>
+              </div>
             </button>
             <button class="mode-btn batch-btn" id="mode-batch">
               <div class="icon-circle batch">⚡</div>
-              <span class="mode-title">모든 탭 수집</span>
-              <span class="mode-desc">배치 자동 수집</span>
+              <div class="mode-info">
+                <span class="mode-title">모든 탭 수집</span>
+                <span class="mode-desc">배치 자동 수집</span>
+              </div>
             </button>
           </div>
         </div>

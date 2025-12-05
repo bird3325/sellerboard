@@ -145,6 +145,16 @@ async function handleSignOut(sendResponse) {
 async function handleGetSession(sendResponse) {
     try {
         const client = await initializeSupabase();
+
+        // 세션이 있으면 유효성 검사 수행
+        if (client.getSession()) {
+            const isValid = await client.validateSession();
+            if (!isValid) {
+                sendResponse({ session: null });
+                return;
+            }
+        }
+
         const session = client.getSession();
         sendResponse({ session });
     } catch (error) {
@@ -218,17 +228,18 @@ async function handleBatchCollect(sendResponse) {
             }).catch(() => { }); // 팝업이 닫혀있을 수 있음
 
             try {
-                // 탭 활성화
+                // 탭 활성화 및 로딩 대기
                 await chrome.tabs.update(tab.id, { active: true });
-                await delay(1000);
 
-                // 수집 메시지 전송
-                await chrome.tabs.sendMessage(tab.id, {
-                    action: 'trigger_product'
-                });
+                // 탭이 완전히 로드될 때까지 대기 (최대 10초)
+                await waitForTabLoad(tab.id);
+                await delay(1500); // 추가 안정화 시간
+
+                // 수집 메시지 전송 (재시도 로직 포함)
+                await sendMessageToTabWithRetry(tab.id, { action: 'trigger_product' });
 
                 results.success++;
-                await delay(3000); // 다음 탭 대기
+                await delay(2000); // 다음 탭 대기
 
             } catch (error) {
                 console.error(`[ServiceWorker] 탭 "${tab.title}" 수집 실패:`, error);
@@ -271,6 +282,67 @@ function isProductPage(url) {
  */
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * 탭 로딩 대기
+ */
+function waitForTabLoad(tabId, timeout = 10000) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            resolve(); // 타임아웃 되어도 진행 (이미 로드되었을 수 있음)
+        }, timeout);
+
+        chrome.tabs.get(tabId, (tab) => {
+            if (tab.status === 'complete') {
+                clearTimeout(timer);
+                resolve();
+            } else {
+                // 리스너로 완료 대기
+                const listener = (tid, changeInfo) => {
+                    if (tid === tabId && changeInfo.status === 'complete') {
+                        chrome.tabs.onUpdated.removeListener(listener);
+                        clearTimeout(timer);
+                        resolve();
+                    }
+                };
+                chrome.tabs.onUpdated.addListener(listener);
+            }
+        });
+    });
+}
+
+/**
+ * 메시지 전송 (재시도 및 스크립트 주입 포함)
+ */
+async function sendMessageToTabWithRetry(tabId, message, retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            // 1. 메시지 전송 시도
+            return await chrome.tabs.sendMessage(tabId, message);
+        } catch (error) {
+            // 2. 연결 실패 시 스크립트 주입 시도 (첫 번째 실패 시에만)
+            if (i === 0 && error.message.includes('Could not establish connection')) {
+                console.log(`[ServiceWorker] 탭 ${tabId}에 스크립트 주입 시도...`);
+                try {
+                    await chrome.scripting.executeScript({
+                        target: { tabId: tabId },
+                        files: ['content/content-script.js']
+                    });
+                    await delay(500); // 스크립트 초기화 대기
+                    continue; // 재시도
+                } catch (scriptError) {
+                    console.error('[ServiceWorker] 스크립트 주입 실패:', scriptError);
+                }
+            }
+
+            // 3. 마지막 시도면 에러 throw
+            if (i === retries - 1) throw error;
+
+            // 4. 대기 후 재시도
+            await delay(1000);
+        }
+    }
 }
 
 console.log('[ServiceWorker] 로드 완료');

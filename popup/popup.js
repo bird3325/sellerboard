@@ -7,8 +7,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkLoginStatus();
     setupEventListeners();
 
-    // 주기적 로그인 체크 (5초마다)
-    setInterval(checkLoginStatus, 5000);
+    // 주기적 로그인 체크 (30초마다)
+    setInterval(checkLoginStatus, 30000);
 });
 
 /**
