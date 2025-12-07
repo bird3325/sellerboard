@@ -11,7 +11,16 @@ class CoupangParser extends BaseParser {
     getSelectors() {
         return {
             name: '.prod-buy-header__title, h1.prod-buy-header__title',
-            price: '.total-price strong, .price-value',
+            name: '.prod-buy-header__title, h1.prod-buy-header__title',
+            price: [
+                '.total-price strong',
+                '.price-value',
+                '.prod-sale-price',
+                '.prod-price .total-price',
+                '.prod-price .price-val',
+                'span.total-price',
+                'strong.price-value'
+            ],
             images: '.prod-image__main img, .product-image-slider img',
             stock: '.prod-soldout-message, .out-of-stock',
             description: '.prod-description, #prod-description',
@@ -36,25 +45,7 @@ class CoupangParser extends BaseParser {
         return '상품명을 찾을 수 없습니다';
     }
 
-    async extractPrice() {
-        const selectors = [
-            '.total-price strong',
-            '.price-value',
-            '.prod-price .total-price',
-            'strong.price-value'
-        ];
 
-        for (const selector of selectors) {
-            const element = document.querySelector(selector);
-            if (element) {
-                const priceText = element.textContent.trim();
-                const price = this.parsePrice(priceText);
-                if (price > 0) return price;
-            }
-        }
-
-        return 0;
-    }
 
     async extractOptions() {
         const options = [];

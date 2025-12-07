@@ -11,7 +11,14 @@ class GmarketParser extends BaseParser {
     getSelectors() {
         return {
             name: '.itemtit, .item_tit, h1.itemtit',
-            price: '.price_innerwrap .price strong, .price_real',
+            name: '.itemtit, .item_tit, h1.itemtit',
+            price: [
+                '.price_innerwrap .price strong',
+                '.price_real',
+                'strong.price',
+                '.item-topinfo_price strong',
+                '.price_info .price strong'
+            ],
             images: '.item_photo_view img, .thumb_image img',
             stock: '.soldout-layer, .item-soldout',
             description: '.item_section, .item_info_section',
@@ -37,25 +44,7 @@ class GmarketParser extends BaseParser {
         return '상품명을 찾을 수 없습니다';
     }
 
-    async extractPrice() {
-        const selectors = [
-            '.price_real',
-            '.price_innerwrap .price strong',
-            'strong.price',
-            '.item-topinfo_price strong'
-        ];
 
-        for (const selector of selectors) {
-            const element = document.querySelector(selector);
-            if (element) {
-                const priceText = element.textContent.trim();
-                const price = this.parsePrice(priceText);
-                if (price > 0) return price;
-            }
-        }
-
-        return 0;
-    }
 
     async extractOptions() {
         const options = [];

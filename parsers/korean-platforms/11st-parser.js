@@ -11,7 +11,15 @@ class ElevenStParser extends BaseParser {
     getSelectors() {
         return {
             name: '.info_tit, .c_prd_tit h1',
-            price: '.selling_price, .price_detail strong',
+            name: '.info_tit, .c_prd_tit h1',
+            price: [
+                '.selling_price',
+                '.price_detail strong',
+                'strong.price',
+                '.c_prd_price strong',
+                '.final_price',
+                '.price_wrap strong'
+            ],
             images: '.img_prd img, .slick-slide img',
             stock: '.sold_out, .c_stock_out',
             description: '.c_product_info, .goods_info_detail',
@@ -37,25 +45,7 @@ class ElevenStParser extends BaseParser {
         return '상품명을 찾을 수 없습니다';
     }
 
-    async extractPrice() {
-        const selectors = [
-            '.selling_price',
-            '.price_detail strong',
-            'strong.price',
-            '.c_prd_price strong'
-        ];
 
-        for (const selector of selectors) {
-            const element = document.querySelector(selector);
-            if (element) {
-                const priceText = element.textContent.trim();
-                const price = this.parsePrice(priceText);
-                if (price > 0) return price;
-            }
-        }
-
-        return 0;
-    }
 
     async extractOptions() {
         const options = [];

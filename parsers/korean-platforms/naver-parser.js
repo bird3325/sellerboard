@@ -11,7 +11,15 @@ class NaverParser extends BaseParser {
     getSelectors() {
         return {
             name: '.se-module.se-module-text h3, ._22kNQuEXmb h1, #content .detailInfoWrapper h3',
-            price: '._1LY7DqCnwR, .lowestPrice em, #content .price_area strong',
+            name: '.se-module.se-module-text h3, ._22kNQuEXmb h1, #content .detailInfoWrapper h3',
+            price: [
+                '._1LY7DqCnwR',
+                '.lowestPrice em',
+                '#content .price_area strong',
+                '.price_area strong.price',
+                '.product_price .price',
+                'strong.price'
+            ],
             images: '.se-component-image img, ._2X57Mx4z8B img, .img_area img',
             stock: '.se-module.se-module-text:contains("재고"), .stock_area',
             description: '.se-main-container, ._productTableWrap, .productDescription',
@@ -39,25 +47,7 @@ class NaverParser extends BaseParser {
         return '상품명을 찾을 수 없습니다';
     }
 
-    async extractPrice() {
-        const selectors = [
-            '._1LY7DqCnwR',
-            '.lowestPrice em',
-            '.price_area strong.price',
-            'strong.price'
-        ];
 
-        for (const selector of selectors) {
-            const element = document.querySelector(selector);
-            if (element) {
-                const priceText = element.textContent.trim();
-                const price = this.parsePrice(priceText);
-                if (price > 0) return price;
-            }
-        }
-
-        return 0;
-    }
 
     async extractOptions() {
         const options = [];

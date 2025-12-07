@@ -47,6 +47,31 @@ class BaseParser {
                 collectedAt: new Date().toISOString()
             };
 
+            // 옵션이 없는 경우 기본 옵션 생성 (단일 상품)
+            if (product.options.length === 0) {
+                console.log(`[${this.platform}] No options found. Creating default option.`);
+                product.options.push({
+                    name: '기본',
+                    values: [{
+                        value: '단품',
+                        price: product.price,
+                        stock: product.stock
+                    }]
+                });
+            } else {
+                // 옵션이 있지만 가격이 0인 경우 메인 가격으로 채움 (선택적)
+                product.options.forEach(group => {
+                    group.values.forEach(val => {
+                        if (val.price === 0 && product.price > 0) {
+                            // 옵션별 가격 차이가 0인 경우(즉, 기본가와 동일)가 아니라
+                            // 절대 가격이 필요한 경우 메인 가격+차액 로직이 필요할 수 있음.
+                            // 여기서는 단순히 '추가금' 개념이 0인 것은 정상이므로 패스.
+                            // 만약 절대 가격이 필요한 구조라면 로직 수정 필요.
+                        }
+                    });
+                });
+            }
+
             console.log(`[${this.platform}] Parsing completed:`, product);
             return product;
         } catch (error) {
@@ -115,14 +140,95 @@ class BaseParser {
      * @returns {Promise<number>}
      */
     async extractPrice() {
-        const selector = this.selectors.price;
-        if (!selector) throw new Error('Price selector not defined');
+        const selectors = this.selectors.price;
+        if (!selectors) throw new Error('Price selector not defined');
 
-        const element = document.querySelector(selector);
-        if (!element) return 0;
+        // 선택자가 배열인 경우 순차적으로 시도
+        const selectorList = Array.isArray(selectors) ? selectors : [selectors];
 
-        const priceText = element.textContent.trim();
-        return this.parsePrice(priceText);
+        for (const selector of selectorList) {
+            const elements = document.querySelectorAll(selector);
+
+            for (const element of elements) {
+                if (!element) continue;
+
+                // 가시성 확인 (옵션)
+                if (element.offsetParent === null) continue;
+
+                const priceText = element.textContent.trim();
+                console.log(`[${this.platform}] Checking price selector "${selector}": "${priceText}"`);
+                const price = this.parsePrice(priceText);
+
+                if (price > 0) return price;
+            }
+        }
+
+        // 2. Fallback: 메타 태그 검색
+        const metaPrice = document.querySelector('meta[property="og:price:amount"], meta[itemprop="price"]');
+        if (metaPrice) {
+            const price = this.parsePrice(metaPrice.content);
+            if (price > 0) {
+                console.log(`[${this.platform}] Price found in meta tag: ${price}`);
+                return price;
+            }
+        }
+
+        // 3. Last Resort: 페이지 전체에서 가격 패턴 검색 (가장 큰 숫자 또는 빈도수 높은 패턴)
+        // 주의: 날짜나 전화번호를 가격으로 오인할 수 있으므로 보수적으로 접근
+        console.log(`[${this.platform}] Price selectors failed. Attempting deep body search...`);
+        try {
+            // "원" 또는 "$" 주변의 숫자를 찾음
+            const bodyText = document.body.innerText;
+            const priceRegex = /([0-9,]+)(?:원|\s*KW|\s*KRW)|(?:US\s*)?\$([0-9,]+\.?\d*)/g;
+            let match;
+            const foundPrices = [];
+
+            while ((match = priceRegex.exec(bodyText)) !== null) {
+                const rawNum = match[1] || match[2];
+                const isKRW = !!match[1]; // 첫 번째 그룹이 매칭되면 원화
+                const val = parseFloat(rawNum.replace(/,/g, ''));
+
+                if (isKRW) {
+                    // 원화: 100원 이상
+                    if (val >= 100 && val < 50000000) {
+                        foundPrices.push(val);
+                    }
+                } else {
+                    // 달러 등 기타: 0.01 이상
+                    if (val >= 0.01 && val < 100000) {
+                        foundPrices.push(val);
+                    }
+                }
+            }
+
+            if (foundPrices.length > 0) {
+                // 가장 많이 등장한 가격 또는 중간값 등을 사용할 수 있으나, 
+                // 보통 상품 페이지 상단에 노출된 가격이 중요하므로 첫 번째 유효값을 쓰거나
+                // 빈도 분석을 함. 여기서는 단순히 첫 번째 유효값(상단)을 선택하거나,
+                // 가장 그럴듯한(빈도가 높은) 값을 선택.
+
+                // 간단히 첫 5개 중 최빈값 선택
+                const candidates = foundPrices.slice(0, 10);
+                const modeMap = {};
+                let maxEl = candidates[0], maxCount = 1;
+
+                for (let i = 0; i < candidates.length; i++) {
+                    const el = candidates[i];
+                    if (modeMap[el] == null) modeMap[el] = 1;
+                    else modeMap[el]++;
+                    if (modeMap[el] > maxCount) {
+                        maxEl = el;
+                        maxCount = modeMap[el];
+                    }
+                }
+                console.log(`[${this.platform}] Deep search found deep price: ${maxEl}`);
+                return maxEl;
+            }
+        } catch (e) {
+            console.error('Deep price search failed:', e);
+        }
+
+        return 0;
     }
 
     /**
@@ -188,6 +294,19 @@ class BaseParser {
         if (text.includes('품절') || text.includes('sold out')) {
             return 'out_of_stock';
         } else if (text.includes('재고') || text.includes('in stock')) {
+            return 'in_stock';
+        }
+
+        // 품절 문구가 없고 가격이 존재하면 재고 있음으로 간주
+        const price = await this.extractPrice();
+        if (price > 0) {
+            // 메타 데이터 추가 확인 (Schema.org)
+            const availability = document.querySelector('meta[itemprop="availability"]');
+            if (availability && availability.content) {
+                if (availability.content.includes('OutOfStock') || availability.content.includes('SoldOut')) {
+                    return 'out_of_stock';
+                }
+            }
             return 'in_stock';
         }
 

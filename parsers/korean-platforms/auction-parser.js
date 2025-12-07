@@ -12,7 +12,14 @@ class AuctionParser extends BaseParser {
     getSelectors() {
         return {
             name: '.itemtit, .prod_title',
-            price: '.price_real, .price strong',
+            name: '.itemtit, .prod_title',
+            price: [
+                '.price_real',
+                '.price strong',
+                'strong.price',
+                '.now_price strong',
+                '.item_topinfo_price strong'
+            ],
             images: '.item_photo_view img, .thumb_image img',
             stock: '.soldout-layer, .item-soldout',
             description: '.item_section, .prod_detail',
@@ -38,25 +45,7 @@ class AuctionParser extends BaseParser {
         return '상품명을 찾을 수 없습니다';
     }
 
-    async extractPrice() {
-        const selectors = [
-            '.price_real',
-            '.price strong',
-            'strong.price',
-            '.now_price strong'
-        ];
 
-        for (const selector of selectors) {
-            const element = document.querySelector(selector);
-            if (element) {
-                const priceText = element.textContent.trim();
-                const price = this.parsePrice(priceText);
-                if (price > 0) return price;
-            }
-        }
-
-        return 0;
-    }
 
     async extractOptions() {
         const options = [];

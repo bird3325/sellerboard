@@ -12,7 +12,18 @@ class AliexpressParser extends BaseParser {
     getSelectors() {
         return {
             name: '.product-title-text, h1[data-pl="product-title"]',
-            price: '.product-price-value, .price--currentPriceText--V8_y_b5',
+            name: '.product-title-text, h1[data-pl="product-title"]',
+            price: [
+                '.product-price-value',
+                '.price--currentPriceText--V8_y_b5',
+                '[class*="price--currentPriceText"]',
+                '.product-price .price-current',
+                '.uniform-banner-box-price',
+                'span[itemprop="price"]',
+                '.sku-price',
+                '[class*="price-kr--current"]', // Added from user screenshot
+                '.price-kr--currentWrap--mCxOJo3 span'
+            ],
             images: '.images-view-item img, .magnifier-image',
             stock: '.product-quantity-tip, .quantity--stock',
             description: '.product-description, .detail-desc-decorate-richtext',
@@ -45,23 +56,8 @@ class AliexpressParser extends BaseParser {
         // 가격 로딩 대기
         await this.wait(500);
 
-        const selectors = [
-            '.price--currentPriceText--V8_y_b5',
-            '.product-price-value',
-            '.product-price .price-current',
-            'span[itemprop="price"]'
-        ];
-
-        for (const selector of selectors) {
-            const element = document.querySelector(selector);
-            if (element) {
-                const priceText = element.textContent.trim();
-                const price = this.parsePrice(priceText);
-                if (price > 0) return price;
-            }
-        }
-
-        return 0;
+        // BaseParser의 강력한 로직 사용 (다중 선택자 + 메타태그 + 본문 검색)
+        return await super.extractPrice();
     }
 
     log(...args) {
@@ -440,11 +436,11 @@ class AliexpressParser extends BaseParser {
         };
 
         // 배송비 및 배송 시간
-        const shippingEl = document.querySelector('.product-shipping, .dynamic-shipping');
+        const shippingEl = document.querySelector('.product-shipping, .dynamic-shipping, .dynamic-shipping-line, [class*="dynamic-shipping-titleLayout"]');
         if (shippingEl) {
             const text = shippingEl.textContent;
 
-            if (text.includes('Free shipping') || text.includes('무료 배송')) {
+            if (text.includes('Free shipping') || text.includes('무료 배송') || text.includes('무료배송')) {
                 shipping.fee = 0;
                 shipping.type = 'free';
             } else {
@@ -611,9 +607,18 @@ class AliexpressParser extends BaseParser {
 
     async extractStock() {
         // 재고 수량 표시
-        const stockEl = document.querySelector('.product-quantity-tip, .quantity-info');
+        const stockEl = document.querySelector('.product-quantity-tip, .quantity-info, [class*="quantity--info"]');
         if (stockEl) {
             const text = stockEl.textContent.toLowerCase();
+
+            // "재고수량 287" 형태 (User Screenshot)
+            if (stockEl.textContent.includes('재고수량')) {
+                const match = stockEl.textContent.match(/재고수량\s*(\d+)/);
+                if (match) {
+                    const remaining = parseInt(match[1]);
+                    return remaining > 0 ? remaining : 'out_of_stock'; // Return number if possible
+                }
+            }
 
             if (text.includes('only') && text.includes('left')) {
                 // "Only 5 left" 형태
